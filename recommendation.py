@@ -3,6 +3,7 @@ import uvicorn
 import traceback
 import tensorflow as tf
 import pandas as pd
+
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from sklearn.neighbors import NearestNeighbors
@@ -54,19 +55,18 @@ def predict_rating(request: RatingPredictionRequest):
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-# Define the endpoint for recommendation with product names and ratings
-@app.post("/get_recommendation", response_model=RatingRecommendationResponseWithNamesAndRatings)
-def get_recommendation(request: RatingRecommendationRequest):
+    
+@app.get("/get_recommendation/{user_id}", response_model=RatingRecommendationResponseWithNamesAndRatings)
+def get_recommendation(user_id: int):
     try:
         # Aggregate ratings for duplicate entries (taking the average)
         user_ratings = data.groupby(['user_id', 'product'], as_index=False)['rating'].mean()
 
         # Filter data based on the user's rating
-        user_ratings_filtered = user_ratings[user_ratings['user_id'] == request.user_id][['user_id', 'product', 'rating']]
+        user_ratings_filtered = user_ratings[user_ratings['user_id'] == user_id][['user_id', 'product', 'rating']]
 
         # Check if there are enough samples for the specified user
-        if len(user_ratings_filtered) >= 5:
+        if len(user_ratings_filtered) >= 3:
             # Create a pivot table for user-item matrix
             user_item_matrix = user_ratings_filtered.pivot(index='user_id', columns='product', values='rating').fillna(0)
 
@@ -78,7 +78,7 @@ def get_recommendation(request: RatingRecommendationRequest):
                 knn_model.fit(user_item_matrix)
 
                 # Find k-neighbors for the given user
-                _, indices = knn_model.kneighbors(user_item_matrix.loc[[request.user_id]], n_neighbors=5)
+                _, indices = knn_model.kneighbors(user_item_matrix.loc[[user_id]], n_neighbors=1)
 
                 # Get recommended products with their ratings
                 recommended_products_data = user_ratings.loc[user_ratings['user_id'].isin(indices[0])][['product', 'rating']].drop_duplicates()
@@ -100,8 +100,6 @@ def get_recommendation(request: RatingRecommendationRequest):
         else:
             return {"recommendations": {}, "average_rating": 0.0}
 
-    except HTTPException as e:
-        raise  # Reraise HTTPException to maintain status code and detail
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal Server Error")

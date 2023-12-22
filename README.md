@@ -21,12 +21,8 @@ For the `/predict_rating` endpoint, you need to send a JSON payload with the fol
 ```
 note: input "user_id" and "product_name" value based on data_rating3.csv
 
-For the `/get_recommendation` endpoint, you need to send a JSON payload with the following structure:
-```json
-{
-  "user_id": 1
-}
-```
+For the `/get_recommendation/{user_id}`
+
 You can view the API documentation by accessing the `/docs` endpoint after running the server. Additionally, a Dockerfile is provided to facilitate modification and container image creation. By default, the server runs on port 8080, but you can customize the port by injecting the `PORT` environment variable.
 
 ## Usage
